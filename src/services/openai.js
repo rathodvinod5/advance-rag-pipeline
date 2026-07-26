@@ -1,7 +1,6 @@
 import OpenAI from "openai";
-import { config } from "./config.js";
+import { config } from "../config/index.js";
 
-// Shared OpenAI client used for both embeddings and chat completions.
 export const openai = new OpenAI({ apiKey: config.openai.apiKey });
 
 /** Create an embedding vector for a single piece of text. */

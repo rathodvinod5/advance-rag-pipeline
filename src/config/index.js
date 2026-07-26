@@ -12,7 +12,6 @@ export const config = {
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
-    // text-embedding-3-small -> 1536 dims, text-embedding-3-large -> 3072 dims
     embeddingModel: process.env.EMBEDDING_MODEL || "text-embedding-3-small",
     embeddingDimensions: Number(process.env.EMBEDDING_DIMENSIONS) || 1536,
     chatModel: process.env.CHAT_MODEL || "gpt-4o-mini",
@@ -22,12 +21,11 @@ export const config = {
     chunkOverlap: Number(process.env.CHUNK_OVERLAP) || 200,
   },
   retrieval: {
-    topK: Number(process.env.RETRIEVAL_TOP_K) || 4, // per-query candidates from Qdrant
-    rrfK: Number(process.env.RRF_K) || 60, // Reciprocal Rank Fusion constant
-    finalK: Number(process.env.RETRIEVAL_FINAL_K) || 5, // docs kept after fusion
+    topK: Number(process.env.RETRIEVAL_TOP_K) || 4,
+    rrfK: Number(process.env.RRF_K) || 60,
+    finalK: Number(process.env.RETRIEVAL_FINAL_K) || 5,
   },
 };
 
-// Names of the BullMQ queues.
 export const INDEXING_QUEUE = "file-indexing";
 export const QUERY_QUEUE = "query";

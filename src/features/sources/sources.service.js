@@ -2,9 +2,9 @@ import fs from "node:fs/promises";
 import crypto from "node:crypto";
 // Import the lib entry directly to avoid pdf-parse's debug-mode file read on import.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
-import { config } from "./config.js";
-import { qdrant, ensureCollection } from "./qdrant.js";
-import { embedTexts } from "./openai.js";
+import { config } from "../../config/index.js";
+import { qdrant, ensureCollection } from "../../services/qdrant.js";
+import { embedTexts } from "../../services/openai.js";
 
 /** Read a PDF from disk and return its raw text. */
 async function readPdfText(filePath) {

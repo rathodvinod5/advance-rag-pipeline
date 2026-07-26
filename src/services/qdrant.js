@@ -1,5 +1,5 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
-import { config } from "./config.js";
+import { config } from "../config/index.js";
 
 export const qdrant = new QdrantClient({ url: config.qdrant.url });
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { enqueueQueryJob, queryQueue } from "./chat.queue.js";
-
+import { config } from "../../config/index.js";
 export const chatRouter = Router();
 
 // --- POST /query : enqueue a RAG query job, return job id to poll ---
@@ -11,12 +11,13 @@ chatRouter.post("/query", async (req, res, next) => {
       .status(400)
       .json({ error: "Body must include a non-empty 'query' string" });
   }
-
+  console.log("/query called: ", query);
   try {
     const job = await enqueueQueryJob({ query: query.trim() });
     return res.status(202).json({
       message: "Query queued",
       jobId: job.id,
+      // poll: `${config.frontend.url}/query/${job.id}`,
       poll: `/query/${job.id}`,
     });
   } catch (err) {

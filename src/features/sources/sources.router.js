@@ -11,7 +11,7 @@ sourcesRouter.post("/index", upload.single("file"), async (req, res, next) => {
       .status(400)
       .json({ error: "No PDF file uploaded (field: 'file')" });
   }
-
+  console.log("/index called");
   try {
     const job = await enqueueIndexingJob({
       filePath: req.file.path,

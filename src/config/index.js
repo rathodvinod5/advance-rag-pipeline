@@ -25,6 +25,9 @@ export const config = {
     rrfK: Number(process.env.RRF_K) || 60,
     finalK: Number(process.env.RETRIEVAL_FINAL_K) || 5,
   },
+  frontend: {
+    url: process.env.FRONTEND_URL || "http://localhost:3000"
+  },
 };
 
 export const INDEXING_QUEUE = "file-indexing";

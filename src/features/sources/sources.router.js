@@ -4,14 +4,14 @@ import { enqueueIndexingJob } from "./sources.queue.js";
 
 export const sourcesRouter = Router();
 
-// --- POST /index : upload a PDF and enqueue an indexing job ---
+// --- POST /index : upload a PDF, SRT, or WebVTT file and enqueue an indexing job ---
 sourcesRouter.post("/index", upload.single("file"), async (req, res, next) => {
   if (!req.file) {
     return res
       .status(400)
-      .json({ error: "No PDF file uploaded (field: 'file')" });
+      .json({ error: "No file uploaded (field: 'file'). Supported formats: PDF, SRT, VTT" });
   }
-  console.log("/index called");
+
   try {
     const job = await enqueueIndexingJob({
       filePath: req.file.path,

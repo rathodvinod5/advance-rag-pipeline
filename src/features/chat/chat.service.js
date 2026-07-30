@@ -180,13 +180,39 @@ export async function retrieveChunks(query) {
 export async function answerQuery(query) {
   const collection = config.qdrant.collection;
 
-  const vector = await embedText(query);
+  // 1. Check if Qdrant collection exists first
+  try {
+    const exists = await qdrant.collectionExists(collection);
+    if (!exists.exists) {
+      return {
+        query,
+        answer: "No class materials have been indexed yet in the vector database. Please upload at least one source file (PDF, SRT, WebVTT, or TXT) before asking questions.",
+        sources: [],
+        noCollection: true,
+      };
+    }
+  } catch (err) {
+    console.error("Failed checking Qdrant collection existence:", err?.message || err);
+  }
 
-  const hits = await qdrant.search(collection, {
-    vector,
-    limit: config.retrieval.topK,
-    with_payload: true,
-  });
+  // 2. Embed query and search Qdrant
+  let hits = [];
+  try {
+    const vector = await embedText(query);
+    hits = await qdrant.search(collection, {
+      vector,
+      limit: config.retrieval.topK,
+      with_payload: true,
+    });
+  } catch (err) {
+    console.error("Qdrant search error:", err?.message || err);
+    return {
+      query,
+      answer: "No class materials have been indexed yet in the vector database. Please upload at least one source file (PDF, SRT, WebVTT, or TXT) before asking questions.",
+      sources: [],
+      noCollection: true,
+    };
+  }
 
   const sources = hits.map((h) => {
     const text = h.payload?.text ?? "";
@@ -223,8 +249,9 @@ export async function answerQuery(query) {
   if (sources.length === 0) {
     return {
       query,
-      answer: "I couldn't find anything relevant in the indexed documents.",
+      answer: "I couldn't find anything relevant in the indexed documents. Please try rephrasing your question or upload additional class sources.",
       sources: [],
+      noSourcesFound: true,
     };
   }
 

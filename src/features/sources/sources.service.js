@@ -66,6 +66,76 @@ async function readSrtText(filePath) {
 }
 
 /**
+ * Parse raw WebVTT string content into structured subtitle blocks.
+ * @param {string} vttContent
+ * @returns {Array<{ id: number|string, startTime: string, endTime: string, text: string }>}
+ */
+export function parseVtt(vttContent) {
+  const normalized = vttContent.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Strip WebVTT header line (e.g., WEBVTT - Lesson 1) and NOTE comment blocks
+  const cleanedContent = normalized
+    .replace(/^WEBVTT[^\n]*/i, "")
+    .replace(/^NOTE(?:\s+[^\n]*)?(?:\n[^\n]+)*/gm, "");
+
+  const blocks = cleanedContent.trim().split(/\n\s*\n/);
+  const subtitles = [];
+
+  for (let i = 0; i < blocks.length; i++) {
+    const lines = blocks[i].trim().split("\n");
+    let timeIndex = -1;
+
+    for (let j = 0; j < lines.length; j++) {
+      if (lines[j].includes("-->")) {
+        timeIndex = j;
+        break;
+      }
+    }
+
+    if (timeIndex !== -1) {
+      const cueId = timeIndex > 0 ? lines[0].trim() : i + 1;
+      const timeLine = lines[timeIndex];
+
+      // Separate timestamp pair from trailing cue settings (e.g. line:80% position:50% align:center)
+      const [startPart, endAndSettings] = timeLine.split("-->").map((s) => s.trim());
+      const startTime = startPart;
+      const endTime = endAndSettings ? endAndSettings.split(/\s+/)[0] : "";
+
+      let rawText = lines.slice(timeIndex + 1).join(" ");
+
+      // Convert voice tags <v Speaker Name>Text</v> or <v Speaker Name>Text to "Speaker Name: Text"
+      rawText = rawText.replace(/<v\s+([^>]+)>(.*?)<\/v>/gi, "$1: $2");
+      rawText = rawText.replace(/<v\s+([^>]+)>(.*)/gi, "$1: $2");
+
+      // Strip remaining HTML / VTT formatting tags (e.g., <b>, <i>, <00:00:01.234>, etc.)
+      const text = rawText.replace(/<[^>]+>/g, "").trim();
+
+      if (text) {
+        subtitles.push({
+          id: cueId,
+          startTime: startTime || "",
+          endTime: endTime || "",
+          text,
+        });
+      }
+    }
+  }
+
+  return subtitles;
+}
+
+/** Read a WebVTT file from disk and return formatted text with timestamps. */
+async function readVttText(filePath) {
+  const content = await fs.readFile(filePath, "utf-8");
+  const subtitles = parseVtt(content);
+
+  // Format each subtitle line with its timestamp: [00:00:01.500 --> 00:00:04.200] Speaker: Hello world
+  return subtitles
+    .map((sub) => `[${sub.startTime} --> ${sub.endTime}] ${sub.text}`)
+    .join("\n");
+}
+
+/**
  * Split text into overlapping chunks (~chunkSize chars, chunkOverlap overlap),
  * breaking on whitespace boundaries where possible.
  */
@@ -97,7 +167,7 @@ export function chunkText(text, chunkSize = config.chunking.chunkSize, overlap =
 }
 
 /**
- * Full indexing pipeline for an uploaded PDF or SRT file:
+ * Full indexing pipeline for an uploaded PDF, SRT, or WebVTT file:
  * read -> chunk -> embed -> upsert into Qdrant.
  */
 export async function indexFile({ filePath, originalName, mimeType }) {
@@ -110,6 +180,9 @@ export async function indexFile({ filePath, originalName, mimeType }) {
   if (ext === ".srt" || mimeType?.includes("subrip") || mimeType?.includes("srt")) {
     fileType = "srt";
     text = await readSrtText(filePath);
+  } else if (ext === ".vtt" || mimeType?.includes("vtt")) {
+    fileType = "vtt";
+    text = await readVttText(filePath);
   } else {
     fileType = "pdf";
     text = await readPdfText(filePath);

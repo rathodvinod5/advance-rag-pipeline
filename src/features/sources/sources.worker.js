@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { INDEXING_QUEUE } from "../../config/index.js";
 import { connection } from "../../services/redis.js";
-import { indexPdf } from "./sources.service.js";
+import { indexFile } from "./sources.service.js";
 
 export function createIndexingWorker() {
   const worker = new Worker(
@@ -9,12 +9,13 @@ export function createIndexingWorker() {
     async (job) => {
       console.log(`📥 Indexing job ${job.id}: ${job.data.originalName}`);
 
-      const result = await indexPdf({
+      const result = await indexFile({
         filePath: job.data.filePath,
         originalName: job.data.originalName,
+        mimeType: job.data.mimeType,
       });
 
-      console.log(`   → ${result.chunks} chunk(s) indexed`);
+      console.log(`   → ${result.chunks} chunk(s) indexed (${result.fileType || "file"})`);
       return result;
     },
     { connection, concurrency: 2 }

@@ -23,7 +23,19 @@ export const upload = multer({
   storage,
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype === "application/pdf") return cb(null, true);
-    cb(new Error("Only PDF files are allowed"));
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = [".pdf", ".srt"];
+    const allowedMimes = [
+      "application/pdf",
+      "text/plain",
+      "application/x-subrip",
+      "text/srt",
+      "application/octet-stream",
+    ];
+
+    if (allowedExts.includes(ext) || allowedMimes.includes(file.mimetype)) {
+      return cb(null, true);
+    }
+    cb(new Error("Only PDF and SRT files are allowed"));
   },
 });

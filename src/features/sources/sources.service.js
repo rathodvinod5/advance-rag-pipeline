@@ -14,6 +14,11 @@ async function readPdfText(filePath) {
   return data.text;
 }
 
+/** Read a plain text file (.txt or .md) from disk and return its content. */
+async function readTxtText(filePath) {
+  return fs.readFile(filePath, "utf-8");
+}
+
 /**
  * Parse raw SRT string content into structured subtitle blocks.
  * @param {string} srtContent
@@ -167,7 +172,7 @@ export function chunkText(text, chunkSize = config.chunking.chunkSize, overlap =
 }
 
 /**
- * Full indexing pipeline for an uploaded PDF, SRT, or WebVTT file:
+ * Full indexing pipeline for an uploaded PDF, SRT, WebVTT, or Plain Text file:
  * read -> chunk -> embed -> upsert into Qdrant.
  */
 export async function indexFile({ filePath, originalName, mimeType }) {
@@ -183,6 +188,9 @@ export async function indexFile({ filePath, originalName, mimeType }) {
   } else if (ext === ".vtt" || mimeType?.includes("vtt")) {
     fileType = "vtt";
     text = await readVttText(filePath);
+  } else if (ext === ".txt" || ext === ".md" || mimeType === "text/plain" || mimeType === "text/markdown") {
+    fileType = "txt";
+    text = await readTxtText(filePath);
   } else {
     fileType = "pdf";
     text = await readPdfText(filePath);

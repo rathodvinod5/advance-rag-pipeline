@@ -24,19 +24,20 @@ export const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowedExts = [".pdf", ".srt", ".vtt"];
+    const allowedExts = [".pdf", ".srt", ".vtt", ".txt", ".md"];
     const allowedMimes = [
       "application/pdf",
       "text/plain",
       "application/x-subrip",
       "text/srt",
       "text/vtt",
+      "text/markdown",
       "application/octet-stream",
     ];
 
     if (allowedExts.includes(ext) || allowedMimes.includes(file.mimetype)) {
       return cb(null, true);
     }
-    cb(new Error("Only PDF, SRT, and WebVTT (.vtt) files are allowed"));
+    cb(new Error("Only PDF, SRT, WebVTT, and Plain Text (.txt, .md) files are allowed"));
   },
 });

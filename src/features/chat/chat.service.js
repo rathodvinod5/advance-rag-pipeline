@@ -129,6 +129,7 @@ function reciprocalRankFusion(rankedLists, k = config.retrieval.rrfK) {
           id: h.id,
           text: h.payload?.text ?? "",
           source: h.payload?.source ?? null,
+          fileType: h.payload?.fileType ?? null,
           chunkIndex: h.payload?.chunkIndex ?? null,
           bestScore: h.score,
           rrfScore: contribution,
@@ -179,31 +180,88 @@ export async function retrieveChunks(query) {
 export async function answerQuery(query) {
   const collection = config.qdrant.collection;
 
-  const vector = await embedText(query);
+  // 1. Check if Qdrant collection exists first
+  try {
+    const exists = await qdrant.collectionExists(collection);
+    if (!exists.exists) {
+      return {
+        query,
+        answer: "No class materials have been indexed yet in the vector database. Please upload at least one source file (PDF, SRT, WebVTT, or TXT) before asking questions.",
+        sources: [],
+        noCollection: true,
+      };
+    }
+  } catch (err) {
+    console.error("Failed checking Qdrant collection existence:", err?.message || err);
+  }
 
-  const hits = await qdrant.search(collection, {
-    vector,
-    limit: config.retrieval.topK,
-    with_payload: true,
+  // 2. Embed query and search Qdrant
+  let hits = [];
+  try {
+    const vector = await embedText(query);
+    hits = await qdrant.search(collection, {
+      vector,
+      limit: config.retrieval.topK,
+      with_payload: true,
+    });
+  } catch (err) {
+    console.error("Qdrant search error:", err?.message || err);
+    return {
+      query,
+      answer: "No class materials have been indexed yet in the vector database. Please upload at least one source file (PDF, SRT, WebVTT, or TXT) before asking questions.",
+      sources: [],
+      noCollection: true,
+    };
+  }
+
+  const sources = hits.map((h) => {
+    const text = h.payload?.text ?? "";
+    const source = h.payload?.source ?? null;
+    const fileType =
+      h.payload?.fileType ??
+      (source?.endsWith(".srt") ? "srt" : source?.endsWith(".vtt") ? "vtt" : "pdf");
+
+    // Extract start & end timestamps if present in chunk text
+    let timeRange = null;
+    if (fileType === "srt" || fileType === "vtt" || text.includes("-->")) {
+      const matches = [...text.matchAll(/\[(.*?) *--> *(.*?)\]/g)];
+      if (matches.length > 0) {
+        const startTime = matches[0][1].trim();
+        const endTime = matches[matches.length - 1][2].trim();
+        timeRange = {
+          start: startTime,
+          end: endTime,
+          formatted: `${startTime} - ${endTime}`,
+        };
+      }
+    }
+
+    return {
+      text,
+      source,
+      fileType,
+      timeRange,
+      chunkIndex: h.payload?.chunkIndex ?? null,
+      score: h.score,
+    };
   });
-
-  const sources = hits.map((h) => ({
-    text: h.payload?.text ?? "",
-    source: h.payload?.source ?? null,
-    chunkIndex: h.payload?.chunkIndex ?? null,
-    score: h.score,
-  }));
 
   if (sources.length === 0) {
     return {
       query,
-      answer: "I couldn't find anything relevant in the indexed documents.",
+      answer: "I couldn't find anything relevant in the indexed documents. Please try rephrasing your question or upload additional class sources.",
       sources: [],
+      noSourcesFound: true,
     };
   }
 
   const context = sources
-    .map((s, i) => `[Chunk ${i + 1}] (source: ${s.source})\n${s.text}`)
+    .map((s, i) => {
+      const header = s.timeRange
+        ? `[Chunk ${i + 1}] (source: ${s.source}, timeRange: ${s.timeRange.formatted})`
+        : `[Chunk ${i + 1}] (source: ${s.source})`;
+      return `${header}\n${s.text}`;
+    })
     .join("\n\n");
 
   const completion = await openai.chat.completions.create({
@@ -213,7 +271,9 @@ export async function answerQuery(query) {
       {
         role: "system",
         content:
-          "You are a helpful assistant. Answer the user's question using ONLY the provided context. " +
+          "You are a helpful assistant for class material retrieval. " +
+          "Answer the user's question using ONLY the provided context. " +
+          "When referencing content from subtitle or video files (.srt / .vtt), explicitly mention the time range where the topic is discussed (e.g. 'Discussed between [00:01:10 - 00:01:45]'). " +
           "If the answer is not contained in the context, say you don't know. Be concise.",
       },
       {

@@ -1,6 +1,6 @@
 # 🚀 Advance RAG Pipeline Backend
 
-An enterprise-grade, domain-driven **Advanced Retrieval-Augmented Generation (RAG)** backend service built with **Node.js**, **Express**, **BullMQ**, **Redis**, **Qdrant Vector DB**, and **OpenAI**.
+An enterprise-grade, domain-driven **Advanced Retrieval-Augmented Generation (RAG)** backend service built with **Node.js**, **Express**, **BullMQ**, **Redis**, **Qdrant Vector DB**, **Prisma (PostgreSQL)**, and **OpenAI**.
 
 This project provides asynchronous document ingestion, multi-format parsing, multi-query expansion, HyDE (Hypothetical Document Embeddings), Reciprocal Rank Fusion (RRF), and timestamp-aware citations for educational and notebook platforms.
 
@@ -19,6 +19,8 @@ This project provides asynchronous document ingestion, multi-format parsing, mul
   - **HyDE (Hypothetical Document Embeddings)**: Generates hypothetical document excerpts to improve vector search accuracy.
   - **Reciprocal Rank Fusion (RRF)**: Merges ranked retrieval candidate lists across all expanded queries.
   - **Timestamp Citations**: Preserves subtitle timecodes (`[00:01:10 --> 00:01:45]`) so answers can cite exact video time ranges.
+- **Relational Database Ready**:
+  - Integrated **Prisma ORM** + **PostgreSQL** (`@prisma/adapter-pg`) with local Docker Compose container configuration.
 - **Feature-First / Domain-Driven Architecture**:
   - Modular structure separating ingestion (`features/sources`) from chat & retrieval (`features/chat`).
 
@@ -30,6 +32,7 @@ This project provides asynchronous document ingestion, multi-format parsing, mul
 | :--- | :--- |
 | **Runtime & Framework** | Node.js (ESM), Express.js |
 | **Vector Database** | Qdrant Vector Search Engine |
+| **Relational Database** | PostgreSQL + Prisma ORM (`@prisma/adapter-pg`) |
 | **Queue & Worker Store** | BullMQ & Redis |
 | **AI / LLM Models** | OpenAI API (`text-embedding-3-small`, `gpt-4o-mini`) |
 | **File Processing** | Multer, `pdf-parse` |
@@ -40,13 +43,18 @@ This project provides asynchronous document ingestion, multi-format parsing, mul
 
 ```
 advance-rag-pipeline/
-├── docker-compose.yml            # Docker services (Qdrant & Redis)
+├── docker-compose.yml            # Docker services (Qdrant, Redis & PostgreSQL)
 ├── package.json
 ├── .env.example
+├── prisma/                       # Prisma Schema & Migration files
+│   └── schema.prisma
 ├── uploads/                      # Temporary storage for uploaded source files
 └── src/
     ├── config/                   # Centralized configuration & queue constants
     │   └── index.js              # Environment variables & RAG hyperparameters
+    │
+    ├── lib/                      # Shared utility instances
+    │   └── db.js                 # Prisma client instance initialized with pg adapter
     │
     ├── services/                 # Infrastructure & client connections
     │   ├── openai.js             # OpenAI SDK & batch embedding helpers
@@ -85,7 +93,7 @@ Create a `.env` file in the root directory (or copy `.env.example`):
 cp .env.example .env
 ```
 
-Ensure your `.env` contains your OpenAI API key and service ports:
+Ensure your `.env` contains your OpenAI API key, service ports, and Postgres database URL:
 
 ```env
 # Server Port
@@ -98,6 +106,9 @@ REDIS_PORT=6379
 # Qdrant Vector Database
 QDRANT_URL=http://127.0.0.1:6333
 QDRANT_COLLECTION=documents
+
+# PostgreSQL Database (Prisma)
+DATABASE_URL="postgresql://postgres:postgrespassword@127.0.0.1:5432/advance_rag?schema=public"
 
 # OpenAI API Key & Models
 OPENAI_API_KEY=sk-your-actual-openai-api-key-here
@@ -119,13 +130,13 @@ RETRIEVAL_FINAL_K=5
 
 ## 🚀 How to Run Locally
 
-### 1. Start Qdrant & Redis Containers
-Ensure Docker Desktop is running, then start the required database services:
+### 1. Start Qdrant, Redis & PostgreSQL Containers
+Ensure Docker Desktop is running, then start all required database services:
 
 ```bash
 npm run services:up
 ```
-*(Runs `docker compose up -d` starting Qdrant on port `6333` and Redis on port `6379`)*
+*(Runs `docker compose up -d` starting Qdrant on port `6333`, Redis on port `6379`, and PostgreSQL on port `5432`)*
 
 ---
 
